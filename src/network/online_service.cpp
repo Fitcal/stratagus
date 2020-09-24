@@ -1,6 +1,10 @@
 #include "online_service.h"
 
+#ifdef USE_WIN32
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
+#endif
 #include <clocale>
 #include <cstdio>
 #include <cstdlib>
@@ -15,7 +19,9 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#ifndef USE_WIN32
 #include <unistd.h>
+#endif
 #include <vector>
 
 #ifdef USE_WIN32
@@ -257,8 +263,8 @@ private:
     }
 
     uint8_t *buf;
-    int sz;
-    int pos;
+    unsigned int sz;
+    unsigned int pos;
     int length_pos;
 };
 
@@ -599,7 +605,7 @@ public:
     void sendText(std::string txt) {
         // C>S 0x0E SID_CHATCOMMAND
         int pos = 0;
-        for (int pos = 0; pos < txt.size(); pos += 220) {
+        for (unsigned int pos = 0; pos < txt.size(); pos += 220) {
             std::string text = txt.substr(pos, pos + 220);
             if (pos + 220 < txt.size()) {
                 text += "...";
@@ -1486,9 +1492,14 @@ class ConnectState : public NetworkState {
         // (UINT32) Local IP
         if (CNetworkParameter::Instance.localHost.compare("127.0.0.1")) {
             // user set a custom local ip, use that
+#ifdef USE_WIN32
+            uint32_t addr = inet_addr(CNetworkParameter::Instance.localHost.c_str());
+            buffer.serialize32(addr);
+#else
             struct in_addr addr;
             inet_aton(CNetworkParameter::Instance.localHost.c_str(), &addr);
             buffer.serialize32(addr.s_addr);
+#endif
         } else {
             unsigned long ips[20];
             int networkNumInterfaces = NetworkFildes.GetSocketAddresses(ips, 20);
